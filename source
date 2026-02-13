@@ -1,0 +1,398 @@
+if not game:IsLoaded() then game.Loaded:Wait() end
+wait(3)
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local speaker = Players.LocalPlayer
+
+local function getRoot(char)
+    return char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
+end
+
+local function getEquippedAbility(plr)
+    if not plr then return "없음" end
+    
+    local leaderstats = plr:FindFirstChild("leaderstats")
+    if leaderstats then
+        local abilityValue = leaderstats:FindFirstChild("Ability") 
+                         or leaderstats:FindFirstChild("CurrentAbility") 
+                         or leaderstats:FindFirstChild("EquippedAbility")
+        if abilityValue and abilityValue:IsA("StringValue") and abilityValue.Value ~= "" then
+            return abilityValue.Value
+        end
+    end
+    
+    task.wait(0.8)
+    leaderstats = plr:FindFirstChild("leaderstats")
+    if leaderstats then
+        local abilityValue = leaderstats:FindFirstChild("Ability") 
+                         or leaderstats:FindFirstChild("CurrentAbility") 
+                         or leaderstats:FindFirstChild("EquippedAbility")
+        if abilityValue and abilityValue:IsA("StringValue") and abilityValue.Value ~= "" then
+            return abilityValue.Value
+        end
+    end
+    
+    local char = plr.Character
+    if char then
+        for _, child in ipairs(char:GetChildren()) do
+            if child:IsA("Tool") and child.Name ~= "Punch" and child.Name ~= "Fists" and child.Name ~= "Default" then
+                return child.Name
+            end
+        end
+    end
+    
+    return "Default"
+end
+
+local sg = Instance.new("ScreenGui")
+sg.Name = "HackGUI"
+sg.ResetOnSpawn = false
+sg.DisplayOrder = 999999
+sg.IgnoreGuiInset = true
+sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+sg.Parent = speaker:WaitForChild("PlayerGui", 10) or game:GetService("CoreGui")
+
+local ScaledHolder = Instance.new("Frame")
+ScaledHolder.Size = UDim2.fromScale(1, 1)
+ScaledHolder.BackgroundTransparency = 1
+ScaledHolder.Parent = sg
+
+local Holder = Instance.new("Frame")
+Holder.Parent = ScaledHolder
+Holder.Active = true
+Holder.Draggable = true
+Holder.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Holder.Position = UDim2.new(0.5, -180, 0.5, -140)
+Holder.Size = UDim2.new(0, 360, 0, 340)
+Holder.ZIndex = 100001
+Holder.Visible = false
+
+local Title = Instance.new("TextLabel")
+Title.Parent = Holder
+Title.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Font = Enum.Font.SourceSansBold
+Title.Text = "AbilityWars Easy Hack"
+Title.TextColor3 = Color3.new(1, 0.3, 0.3)
+Title.TextSize = 24
+Title.ZIndex = 100002
+
+local QuickOpen = Instance.new("TextButton")
+QuickOpen.Size = UDim2.new(0, 100, 0, 50)
+QuickOpen.Position = UDim2.new(0.02, 0, 0.05, 0)
+QuickOpen.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
+QuickOpen.Text = "OPEN GUI"
+QuickOpen.TextColor3 = Color3.new(1,1,1)
+QuickOpen.TextScaled = true
+QuickOpen.Draggable = true
+QuickOpen.ZIndex = 1000000
+QuickOpen.Parent = ScaledHolder
+
+QuickOpen.MouseButton1Click:Connect(function()
+    Holder.Visible = not Holder.Visible
+    QuickOpen.Text = Holder.Visible and "CLOSE GUI" or "OPEN GUI"
+end)
+
+local function makeToggle(name, yPos, callback)
+    local btn = Instance.new("TextButton")
+    btn.Parent = Holder
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    btn.Position = UDim2.new(0.05, 0, 0, yPos)
+    btn.Size = UDim2.new(0.9, 0, 0, 45)
+    btn.Font = Enum.Font.SourceSans
+    btn.TextSize = 20
+    btn.Text = name .. " : OFF"
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.ZIndex = 100003
+
+    local enabled = false
+    btn.MouseButton1Click:Connect(function()
+        enabled = not enabled
+        btn.Text = name .. " : " .. (enabled and "ON" or "OFF")
+        btn.BackgroundColor3 = enabled and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(50,50,50)
+        callback(enabled)
+    end)
+    return btn
+end
+
+local ESPenabled = false
+local infoESPObjects = {}
+local redBoxObjects = {}
+
+local function removeInfoESP(plr)
+    if infoESPObjects[plr] then
+        if infoESPObjects[plr].bill then pcall(function() infoESPObjects[plr].bill:Destroy() end) end
+        if infoESPObjects[plr].text then pcall(function() infoESPObjects[plr].text:Destroy() end) end
+        if infoESPObjects[plr].conn then pcall(function() infoESPObjects[plr].conn:Disconnect() end) end
+        infoESPObjects[plr] = nil
+    end
+end
+
+local function removeRedBoxes(plr)
+    if redBoxObjects[plr] then
+        for _, box in ipairs(redBoxObjects[plr]) do
+            pcall(function() box:Destroy() end)
+        end
+        redBoxObjects[plr] = nil
+    end
+end
+
+local function applyInfoESP(plr)
+    if plr == speaker or not ESPenabled then return end
+    
+    task.spawn(function()
+        if not plr.Character then plr.CharacterAdded:Wait() end
+        local char = plr.Character
+        if not char then return end
+        
+        local root = getRoot(char)
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if not root or not humanoid then return end
+        
+        removeInfoESP(plr)
+        
+        local bill = Instance.new("BillboardGui")
+        bill.Adornee = root
+        bill.AlwaysOnTop = true
+        bill.Size = UDim2.new(0, 260, 0, 110)
+        bill.StudsOffset = Vector3.new(0, 4.2, 0)
+        bill.Parent = root
+        
+        local text = Instance.new("TextLabel")
+        text.Size = UDim2.new(1,0,1,0)
+        text.BackgroundTransparency = 1
+        text.TextColor3 = Color3.fromRGB(255, 255, 255)
+        text.TextStrokeTransparency = 0.3
+        text.TextStrokeColor3 = Color3.new(0,0,0)
+        text.TextSize = 14
+        text.Font = Enum.Font.SourceSansBold
+        text.TextWrapped = true
+        text.TextXAlignment = Enum.TextXAlignment.Center
+        text.TextYAlignment = Enum.TextYAlignment.Center
+        text.Parent = bill
+        
+        local conn = RunService.RenderStepped:Connect(function()
+            if not ESPenabled or not plr.Character or not root.Parent or not humanoid.Parent or not speaker.Character then return end
+            local sr = getRoot(speaker.Character)
+            if not sr then return end
+            
+            local abilityName = getEquippedAbility(plr)
+            
+            pcall(function()
+                local dist = (root.Position - sr.Position).Magnitude
+                text.Text = string.format(
+                    "%s\nHP: %.0f / %.0f\n거리: %.0f\n능력: %s",
+                    plr.Name, humanoid.Health, humanoid.MaxHealth, dist, abilityName
+                )
+            end)
+        end)
+        
+        infoESPObjects[plr] = {bill = bill, text = text, conn = conn}
+    end)
+end
+
+local function applyRedBoxes(plr)
+    if plr == speaker or not ESPenabled then return end
+    
+    task.spawn(function()
+        if not plr.Character then plr.CharacterAdded:Wait() end
+        local char = plr.Character
+        if not char then return end
+        
+        removeRedBoxes(plr)
+        redBoxObjects[plr] = {}
+        
+        for _, obj in ipairs(char:GetDescendants()) do
+            if obj:IsA("BasePart") and obj.Name ~= "HumanoidRootPart" then
+                local box = Instance.new("BoxHandleAdornment")
+                box.Adornee = obj
+                box.Size = obj.Size
+                box.AlwaysOnTop = true
+                box.Transparency = 0.5
+                box.Color3 = Color3.fromRGB(255, 60, 60)
+                box.ZIndex = 5
+                box.Parent = obj
+                
+                table.insert(redBoxObjects[plr], box)
+            end
+        end
+    end)
+end
+
+makeToggle("ESP", 50, function(on)
+    ESPenabled = on
+    if not on then
+        for plr, _ in pairs(infoESPObjects) do removeInfoESP(plr) end
+        for plr, _ in pairs(redBoxObjects) do removeRedBoxes(plr) end
+        infoESPObjects = {}
+        redBoxObjects = {}
+        return
+    end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        applyInfoESP(plr)
+        applyRedBoxes(plr)
+    end
+end)
+
+local avConn
+makeToggle("Anti Void", 100, function(on)
+    if on then
+        if avConn then return end
+        avConn = RunService.Stepped:Connect(function()
+            local root = getRoot(speaker.Character)
+            if root and root.Position.Y < -30 then
+                root.CFrame = root.CFrame + Vector3.new(0, 60, 0)
+            end
+        end)
+    else
+        if avConn then avConn:Disconnect() avConn = nil end
+    end
+end)
+
+local HitboxEnabled = false
+local hitboxSize = 6
+local maxHitboxSize = 25
+
+makeToggle("Hitbox 확대", 150, function(on)
+    HitboxEnabled = on
+    if not on then
+        for _, plr in Players:GetPlayers() do
+            if plr == speaker then continue end
+            local root = getRoot(plr.Character)
+            if root then
+                root.Size = Vector3.new(2, 2, 1)
+                root.Transparency = 0
+                root.CanCollide = true
+            end
+        end
+        return
+    end
+    for _, plr in Players:GetPlayers() do
+        if plr == speaker then continue end
+        local root = getRoot(plr.Character)
+        if root then
+            root.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+            root.Transparency = 0.3
+            root.CanCollide = false
+        end
+    end
+end)
+
+local SizeLabel = Instance.new("TextLabel")
+SizeLabel.Parent = Holder
+SizeLabel.BackgroundTransparency = 1
+SizeLabel.Position = UDim2.new(0.05, 0, 0, 200)
+SizeLabel.Size = UDim2.new(0.5, 0, 0, 30)
+SizeLabel.Text = "Hitbox 크기 (3~25):"
+SizeLabel.TextColor3 = Color3.new(1,1,1)
+SizeLabel.TextSize = 16
+
+local SizeInput = Instance.new("TextBox")
+SizeInput.Parent = Holder
+SizeInput.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+SizeInput.Position = UDim2.new(0.55, 0, 0, 200)
+SizeInput.Size = UDim2.new(0.4, 0, 0, 30)
+SizeInput.Text = tostring(hitboxSize)
+SizeInput.TextColor3 = Color3.new(1,1,1)
+SizeInput.TextSize = 16
+
+SizeInput.FocusLost:Connect(function(enter)
+    if enter then
+        local num = tonumber(SizeInput.Text)
+        if num and num >= 3 and num <= maxHitboxSize then
+            hitboxSize = num
+            if HitboxEnabled then
+                for _, plr in Players:GetPlayers() do
+                    if plr ~= speaker and plr.Character then
+                        local root = getRoot(plr.Character)
+                        if root then
+                            root.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+                            root.Transparency = 0.3
+                        end
+                    end
+                end
+            end
+        else
+            SizeInput.Text = tostring(hitboxSize)
+        end
+    end
+end)
+
+local function setupPlayer(plr)
+    if plr == speaker then return end
+    
+    if plr.Character then
+        plr.Character.ChildRemoved:Connect(function(child)
+            if child:IsA("Model") or child.Name == "Humanoid" then
+                removeInfoESP(plr)
+                removeRedBoxes(plr)
+            end
+        end)
+    end
+    
+    plr.CharacterAdded:Connect(function(char)
+        task.wait(0.4)
+        if ESPenabled then
+            applyInfoESP(plr)
+            applyRedBoxes(plr)
+        end
+        if HitboxEnabled then
+            local root = getRoot(char)
+            if root then
+                root.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+                root.Transparency = 0.3
+                root.CanCollide = false
+            end
+        end
+    end)
+end
+
+for _, plr in ipairs(Players:GetPlayers()) do
+    setupPlayer(plr)
+end
+
+Players.PlayerAdded:Connect(setupPlayer)
+
+task.spawn(function()
+    while true do
+        task.wait(2.5)
+        
+        if ESPenabled then
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr == speaker then continue end
+                
+                if not infoESPObjects[plr] or not infoESPObjects[plr].bill or not infoESPObjects[plr].bill.Parent then
+                    applyInfoESP(plr)
+                end
+                
+                local redValid = redBoxObjects[plr] and #redBoxObjects[plr] > 0
+                if not redValid then
+                    applyRedBoxes(plr)
+                else
+                    local aliveCount = 0
+                    for _, box in ipairs(redBoxObjects[plr]) do
+                        if box.Parent then aliveCount = aliveCount + 1 end
+                    end
+                    if aliveCount < 4 then
+                        applyRedBoxes(plr)
+                    end
+                end
+            end
+        end
+        
+        if HitboxEnabled then
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr == speaker then continue end
+                local root = getRoot(plr.Character)
+                if root and (root.Size ~= Vector3.new(hitboxSize, hitboxSize, hitboxSize) or root.Transparency ~= 0.3) then
+                    root.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+                    root.Transparency = 0.3
+                    root.CanCollide = false
+                end
+            end
+        end
+    end
+end)
+
+print("Hello World")
